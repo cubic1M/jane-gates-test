@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
+      - run: sleep 100
       # Main's copy only. Never the PR's code in this workflow.
       - uses: actions/checkout@v7
         with:
