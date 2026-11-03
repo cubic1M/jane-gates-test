@@ -84,24 +84,42 @@ const PROTECTED_PATHS = [
   /(^|\/)\.claude(\/|$)/,
   /(^|\/)\.mcp\.json$/,
   /^\.github\/workflows$/,
-  /^\.github\/workflows\/(ci|gates|merge-train|rerun-flaky)\.ya?ml$/,
+  /^\.github\/workflows\/(ci|gates|merge-train|rerun-flaky|review|review-confirm|review-drill)\.ya?ml$/,
   /^\.github\/scripts(\/|$)/,
   /^src\/config\/advice\.ts$/,
+  // With no person reading the flag, this file returning true is how a real account gets advice.
+  /^src\/lib\/advice-mode\.ts$/,
   /^src\/accuracy\/accuracy\.test\.ts$/,
   /^src\/accuracy\/csv\/csv-accuracy\.test\.ts$/,
-  /^vitest\.(config|workspace)\./,
+  /^vitest\.([^/]*\.)?(config|workspace)\./,
   /^src\/test-setup(\/|$)/,
+  // A PR's own copy decides how many tests run, or whether its migrations are safe.
+  /^scripts\/test-scope(-core)?\.mjs$/,
+  /^scripts\/check-migrations\.mjs$/,
+  /^scripts\/migration-gate-core\.mjs$/,
+  /^scripts\/check-ratchets\.mjs$/,
 ];
 
 // These change often enough, or matter little enough on their own, that blocking would hold up other
 // work while no founder can approve. A change to one is flagged instead.
 const WATCHED_PATHS = [
   /^\.github(\/|$)/,
-  /^src\/lib\/advice-mode\.ts$/,
   /^src\/lib\/guardrails\.ts$/,
   /(^|\/)tsconfig[^/]*\.json$/,
   /^\.gitleaks\.toml$/,
   /(^|\/)(claude|agents)\.md$/,
+  /^\.semgrep(\/|$)/,
+  /^\.dependency-cruiser\./,
+  /^knip\.json$/,
+  /^eslint\.config\./,
+  /^stryker\.config\./,
+  /^scripts\/rls-protect\.mjs$/,
+  /^src\/security(\/|$)/,
+  /^src\/config\/access-map\.ts$/,
+  /^src\/config\/deny-by-default\.ts$/,
+  /^src\/lib\/system-db\.ts$/,
+  /^src\/lib\/db-scoped\.ts$/,
+  /^src\/lib\/rls[^/]*\.ts$/,
 ];
 
 /** Paths whose changes need a founder: agents' own limits, and the tests and gates that hold them. */
@@ -114,6 +132,15 @@ export function isProtectedPath(file) {
 export function isWatchedPath(file) {
   const path = file.toLowerCase();
   return !isProtectedPath(file) && WATCHED_PATHS.some((rule) => rule.test(path));
+}
+
+/**
+ * Whether the suite was turned back to running with a bypass (src/config/deny-by-default.ts). Turning
+ * it on needs nobody's approval, since no founder can approve yet; turning it off does.
+ */
+export function bypassTurnedBackOn(before, after) {
+  const value = (text) => /SUITE_RUNS_WITHOUT_BYPASS\s*=\s*(true|false)\b/.exec(text ?? "")?.[1];
+  return value(before) === "true" && value(after) !== "true";
 }
 
 /** Whether package.json's scripts differ: `npm test` could be made to run nothing. */
@@ -178,6 +205,9 @@ export function fixMarking({ title, body, branch, labels }) {
 
 const isTestFile = (file) => /\.test\.tsx?$/.test(file);
 
+// The access proof's tests run alone, in a job of their own (vitest.config.mts leaves them out).
+const isAccessProof = (file) => /\.proof\.test\.tsx?$/.test(file);
+
 /** A file the proof keeps at the PR's version: what the tests are, not what they test. */
 function isTestSupport(file) {
   return (
@@ -199,6 +229,7 @@ function isTestSupport(file) {
 export function proofPlan(changes) {
   const tests = changes
     .filter((c) => c.status !== "D" && c.file.startsWith("src/") && isTestFile(c.file))
+    .filter((c) => !isAccessProof(c.file))
     .map((c) => c.file);
   const source = changes.filter(
     (c) =>

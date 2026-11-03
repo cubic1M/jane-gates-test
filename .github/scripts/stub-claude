@@ -1,0 +1,14 @@
+#!/usr/bin/env node
+// Throwaway stand-in for the CLI: answers from what's in the diff.
+const input = require("node:fs").readFileSync(0, "utf8");
+const findings = [];
+if (input.includes("a - b")) {
+  findings.push({ file: "src/sum.ts", line: 1, kind: "bug", claim: "It subtracts.",
+    test: 'import { expect, it } from "vitest";\nimport { sum } from "./sum";\nit("adds", () => expect(sum(1, 2)).toBe(3));\n' });
+}
+if (input.includes("NOTE_ONLY")) findings.push({ file: "src/note.ts", line: 1, kind: "other", claim: "Just a note @someone." });
+if (input.includes("a + b + 0")) {
+  findings.push({ file: "src/sum.ts", line: 1, kind: "bug", claim: "Wrongly accused.",
+    test: 'import { expect, it } from "vitest";\nimport { sum } from "./sum";\nit("adds", () => expect(sum(1, 2)).toBe(3));\n' });
+}
+console.log(JSON.stringify({ structured_output: { findings } }));

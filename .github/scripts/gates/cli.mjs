@@ -13,6 +13,7 @@ import { parseArgs } from "node:util";
 import {
   BASELINE_FILES,
   baselineDrops,
+  bypassTurnedBackOn,
   founderApproval,
   fixMarking,
   isProtectedPath,
@@ -132,6 +133,10 @@ function protectedProblems(base, head, changes) {
     .map((c) => c.file);
   if (scriptsChanged(blob(base, "package.json"), blob(head, "package.json"))) {
     problems.push("package.json: its scripts changed");
+  }
+  const denyByDefault = "src/config/deny-by-default.ts";
+  if (bypassTurnedBackOn(blob(base, denyByDefault), blob(head, denyByDefault))) {
+    problems.push(`${denyByDefault}: the suite went back to running with a bypass`);
   }
   return problems;
 }
