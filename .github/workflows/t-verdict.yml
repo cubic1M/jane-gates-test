@@ -1,0 +1,17 @@
+name: T verdict
+on: pull_request
+permissions: {contents: read, checks: write}
+jobs:
+  verdict:
+    name: Verdict
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo from-actions
+      - name: Post a neutral check as Actions
+        env: {GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}", SHA: "${{ github.event.pull_request.head.sha }}"}
+        run: gh api repos/$GITHUB_REPOSITORY/check-runs -f name=VerdictNeutral -f head_sha=$SHA -f status=completed -f conclusion=neutral --jq .app.slug
+  skipped:
+    name: VerdictSkipped
+    if: false
+    runs-on: ubuntu-latest
+    steps: [{run: "true"}]
